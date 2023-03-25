@@ -1,0 +1,77 @@
+---
+- name: Harden Ubuntu Desktop
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Update packages cache
+      apt:
+        update_cache: yes
+
+    - name: Install security packages
+      apt:
+        name: ['unattended-upgrades', 'fail2ban', 'ufw']
+        state: present
+
+    - name: Configure unattended-upgrades
+      apt:
+        name: unattended-upgrades
+        state: present
+      copy:
+        src: files/50unattended-upgrades
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+        mode: '0644'
+
+    - name: Configure fail2ban
+      apt:
+        name: fail2ban
+        state: present
+      copy:
+        src: files/jail.local
+        dest: /etc/fail2ban/jail.local
+        mode: '0644'
+      systemd:
+        name: fail2ban
+        state: started
+        enabled: yes
+
+    - name: Configure UFW firewall
+      apt:
+        name: ufw
+        state: present
+      ufw:
+        policy: deny incoming
+        rules:
+          - proto: tcp
+            port: [22, 80, 443]
+            action: allow
+      systemd:
+        name: ufw
+        state: started
+        enabled: yes
+
+    - name: Configure sudoers file
+      apt:
+        name: sudo
+        state: present
+      copy:
+        src: files/sudoers
+        dest: /etc/sudoers
+        mode: '0440'
+
+    - name: Configure SSH server
+      apt:
+        name: openssh-server
+        state: present
+      copy:
+        src: files/sshd_config
+        dest: /etc/ssh/sshd_config
+        mode: '0644'
+      systemd:
+        name: sshd
+        state: restarted
+
+    - name: Remove unnecessary packages
+      apt:
+        name: [nmap, netcat]
+        state: absent
